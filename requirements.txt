@@ -1,3 +1,4 @@
+# Файл: requirements.txt
 fastapi==0.103.1
 uvicorn==0.23.2
 httpx==0.24.1
@@ -9,6 +10,6 @@ jinja2
 pillow
 requests
 python-dotenv
-# Библиотека за Imou камери с PTZ поддръжка - обновена до най-новата версия
-imouapi>=1.0.15
+# Библиотека за ONVIF
+onvif-zeep==0.2.12
 aiohttp>=3.8.0

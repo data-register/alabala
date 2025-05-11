@@ -81,8 +81,11 @@ try:
     from modules.image_analysis.config import get_analysis_config
 
     # Добавяме новите PTZ модули
-    from modules.ptz_control import router as ptz_control_router
-    from modules.ptz_control.config import get_ptz_config
+    # ЗАМЕНЕНО: from modules.ptz_control import router as ptz_control_router
+    # ЗАМЕНЕНО: from modules.ptz_control.config import get_ptz_config
+    from modules.ptz_simple import router as ptz_simple_router
+    from modules.ptz_simple.config import get_ptz_config
+    
     from modules.ptz_capture import router as ptz_capture_router
     from modules.ptz_capture.config import get_capture_config as get_ptz_capture_config
     from modules.multi_image_analysis import router as multi_analysis_router
@@ -122,8 +125,10 @@ try:
     # Регистрираме модул за анализ
     app.include_router(analysis_router, prefix="/analysis", tags=["Image Analysis"])
 
-    # Регистриране на новите PTZ модули
-    app.include_router(ptz_control_router, prefix="/ptz/control", tags=["PTZ Control"])
+    # Регистриране на PTZ модулите
+    # ЗАМЕНЕНО: app.include_router(ptz_control_router, prefix="/ptz/control", tags=["PTZ Control"])
+    app.include_router(ptz_simple_router, prefix="/ptz/simple", tags=["PTZ Simple"])
+    
     app.include_router(ptz_capture_router, prefix="/ptz/capture", tags=["PTZ Capture"])
     app.include_router(multi_analysis_router, prefix="/ptz/analysis", tags=["Multi Image Analysis"])
 except Exception as e:
@@ -199,7 +204,7 @@ async def health():
         "modules": {
             "rtsp_capture": "active",
             "image_analysis": analysis_config.status,
-            "ptz_control": ptz_config.status,
+            "ptz_simple": ptz_config.status,
             "ptz_capture": ptz_capture_config.status,
             "multi_image_analysis": multi_analysis_config.status
         },
@@ -222,16 +227,11 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "7860"))
     
     logger.info(f"Стартиране на ObzorWeather System на {host}:{port}")
-    logger.info("Инициализирани модули: RTSP Capture, Image Analysis, PTZ Control, PTZ Capture, Multi Image Analysis")
+    logger.info("Инициализирани модули: RTSP Capture, Image Analysis, PTZ Simple, PTZ Capture, Multi Image Analysis")
     
     # Проверка за наличие на Anthropic API ключ
     if not os.getenv("ANTHROPIC_API_KEY"):
         logger.warning("ANTHROPIC_API_KEY не е наличен! Image Analysis модулът няма да работи правилно.")
-    
-    # Проверка за наличие на Imou API данни
-    if not (os.getenv("IMOU_APP_ID") and os.getenv("IMOU_APP_SECRET") and os.getenv("IMOU_DEVICE_SN")):
-        logger.warning("IMOU_APP_ID, IMOU_APP_SECRET или IMOU_DEVICE_SN не са налични! PTZ Control модулът ще използва стойности по подразбиране.")
-        logger.info("За използване на произволен брой пресети, задайте тези environment променливи и създайте пресети в Imou Life приложението.")
     
     # Информация за пътищата в системата
     logger.info(f"Текуща директория: {os.getcwd()}")

@@ -1,3 +1,4 @@
+# Файл: Dockerfile
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -23,10 +24,12 @@ RUN mkdir -p /app/frames && chmod 777 /app/frames && \
     mkdir -p /app/templates && chmod 777 /app/templates && \
     mkdir -p /app/modules && chmod 777 /app/modules && \
     mkdir -p /app/modules/rtsp_capture && chmod 777 /app/modules/rtsp_capture && \
+    mkdir -p /app/modules/ptz_simple && chmod 777 /app/modules/ptz_simple && \
     mkdir -p /app/utils && chmod 777 /app/utils && \
     mkdir -p /app/logs && chmod 777 /app/logs && \
     mkdir -p /app/static && chmod 777 /app/static && \
     mkdir -p /app/ptz_frames && chmod 777 /app/ptz_frames && \
+    mkdir -p /app/test_frames && chmod 777 /app/test_frames && \
     for i in $(seq 0 4); do \
         mkdir -p /app/ptz_frames/position_$i && chmod 777 /app/ptz_frames/position_$i; \
     done

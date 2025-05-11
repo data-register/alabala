@@ -1,0 +1,473 @@
+# Файл: templates/ptz_simple_index.html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PTZ Simple Control - ObzorWeather</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 { color: #0066cc; text-align: center; }
+        .container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .control-section { 
+            margin: 20px 0; 
+            border: 1px solid #ccc; 
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            width: 100%;
+        }
+        .info { 
+            background-color: #e7f2ff; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin-top: 20px;
+            width: 100%;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status-ok { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+        .status-warning { background-color: #fff3cd; color: #856404; }
+        
+        /* Стил за контролите на PTZ */
+        .ptz-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px 0;
+        }
+        .ptz-row {
+            display: flex;
+            justify-content: center;
+            margin: 5px 0;
+        }
+        .ptz-button {
+            width: 80px;
+            height: 80px;
+            margin: 5px;
+            border: none;
+            border-radius: 50%;
+            background-color: #0066cc;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        .ptz-button:hover {
+            background-color: #0055aa;
+        }
+        .ptz-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .ptz-center {
+            background-color: #28a745;
+        }
+        .ptz-center:hover {
+            background-color: #218838;
+        }
+        
+        /* Стил за предварително зададени позиции */
+        .preset-positions {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin: 20px 0;
+            width: 100%;
+        }
+        .preset-button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background-color: #6c757d;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .preset-button:hover {
+            background-color: #5a6268;
+        }
+        .preset-button.active {
+            background-color: #28a745;
+            font-weight: bold;
+        }
+        
+        /* Стил за секцията с пресети */
+        .presets-section {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            width: 100%;
+        }
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .preset-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .preset-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .preset-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .preset-button {
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+        .preset-button:hover {
+            background-color: #138496;
+        }
+        
+        /* Стил за формуляра */
+        .config-form {
+            margin-top: 20px;
+            width: 100%;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="number"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0055aa;
+        }
+
+        /* Стил за тестов панел */
+        .diagnostics-section {
+            margin-top: 20px;
+            width: 100%;
+        }
+        .diagnostics-button {
+            background-color: #17a2b8;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .diagnostics-results {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>PTZ Simple Control - ObzorWeather</h1>
+    <div class="container">
+        <div class="control-section">
+            <h2>Управление на PTZ камера</h2>
+            
+            <div class="ptz-controls">
+                <div class="ptz-row">
+                    <button class="ptz-button" onclick="moveToPosition(3)" title="Север">
+                        <span>&#x2B06;</span>
+                    </button>
+                </div>
+                <div class="ptz-row">
+                    <button class="ptz-button" onclick="moveToPosition(1)" title="Изток">
+                        <span>&#x27A1;</span>
+                    </button>
+                    <button class="ptz-button ptz-center" onclick="moveToPosition(0)" title="Покой">
+                        <span>&#x23F9;</span>
+                    </button>
+                    <button class="ptz-button" onclick="moveToPosition(2)" title="Запад">
+                        <span>&#x2B05;</span>
+                    </button>
+                </div>
+                <div class="ptz-row">
+                    <button class="ptz-button" onclick="moveToPosition(4)" title="Юг">
+                        <span>&#x2B07;</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="preset-positions">
+                {% for position_id, position_data in config.positions.items() %}
+                <button class="preset-button {% if current_position == position_id %}active{% endif %}" 
+                        onclick="moveToPosition({{ position_id }})">
+                    {{ position_data.name }} 
+                    {% if position_id in config.preset_tokens %}
+                    ✓
+                    {% endif %}
+                </button>
+                {% endfor %}
+            </div>
+            
+            <button onclick="stopMovement()" class="preset-button" style="background-color: #dc3545;">Стоп</button>
+        </div>
+        
+        {% if presets %}
+        <div class="presets-section">
+            <h2>ONVIF Пресети от камерата</h2>
+            <p>Намерени са {{ presets|length }} пресета от камерата.</p>
+            
+            <div class="presets-grid">
+                {% for preset_token, preset_data in presets.items() %}
+                <div class="preset-item">
+                    <div class="preset-name">{{ preset_data.name }}</div>
+                    <div class="preset-details">
+                        Token: {{ preset_token }}
+                        {% set mapped = false %}
+                        {% for pos_id, token in config.preset_tokens.items() %}
+                            {% if token == preset_token %}
+                                {% set mapped = true %}
+                                <br>Съответства на: {{ config.positions[pos_id].name }} ({{ pos_id }})
+                            {% endif %}
+                        {% endfor %}
+                        {% if not mapped %}
+                            <br>Не е съпоставен с позиция
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="info">
+            <p><strong>Статус:</strong>
+                <span class="status {% if status == 'ok' %}status-ok{% elif status == 'error' %}status-error{% else %}status-warning{% endif %}">
+                    {{ status_text }}
+                </span>
+            </p>
+            <p><strong>Текуща позиция:</strong> {{ config.positions[current_position]['name'] }}</p>
+            <p><strong>Камера:</strong> {{ config.camera_ip }}:{{ config.camera_port }}</p>
+            <p><strong>Съпоставяне на позиции с пресети:</strong></p>
+            <ul>
+                {% for position_id, position_data in config.positions.items() %}
+                <li>
+                    {{ position_data.name }} ({{ position_id }}): 
+                    {% if position_id in config.preset_tokens %}
+                        Пресет {{ config.preset_tokens[position_id] }}
+                    {% else %}
+                        <span style="color: #dc3545;">Не е съпоставен с пресет</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="diagnostics-section">
+            <h2>Диагностика</h2>
+            <button onclick="runDiagnostics()" class="diagnostics-button">Изпълни диагностични тестове</button>
+            <div id="diagnosticsResults" class="diagnostics-results" style="display: none;"></div>
+        </div>
+        
+        <div class="config-form">
+            <h2>Настройки на PTZ модула</h2>
+            <form id="configForm" onsubmit="return updateConfig(event)">
+                <div class="form-group">
+                    <label for="camera_ip">IP адрес на камерата:</label>
+                    <input type="text" id="camera_ip" name="camera_ip" value="{{ config.camera_ip }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="camera_port">Порт:</label>
+                    <input type="number" id="camera_port" name="camera_port" value="{{ config.camera_port }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="username">Потребителско име:</label>
+                    <input type="text" id="username" name="username" value="{{ config.username }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Парола:</label>
+                    <input type="password" id="password" name="password" placeholder="Въведете нова парола">
+                </div>
+                
+                <div class="form-group">
+                    <label for="move_speed">Скорост на движение (0.1 - 1.0):</label>
+                    <input type="number" id="move_speed" name="move_speed" value="{{ config.move_speed }}" min="0.1" max="1.0" step="0.1">
+                </div>
+                
+                <button type="submit">Запази настройките</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Функция за преместване към определена позиция
+        function moveToPosition(position) {
+            fetch(`/ptz/simple/position/${position}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        // Обновяваме активния клас на бутоните
+                        document.querySelectorAll('.preset-button').forEach(button => {
+                            button.classList.remove('active');
+                        });
+                        
+                        // Намираме бутона за тази позиция
+                        const buttons = Array.from(document.querySelectorAll('.preset-button'));
+                        const posButton = buttons.find(btn => btn.onclick.toString().includes(`moveToPosition(${position})`));
+                        
+                        if (posButton) {
+                            posButton.classList.add('active');
+                        }
+                        
+                        // Обновяваме информацията за текущата позиция
+                        const infoSection = document.querySelector('.info');
+                        const positionInfo = infoSection.querySelector('p:nth-child(2)');
+                        positionInfo.innerHTML = `<strong>Текуща позиция:</strong> ${getPositionName(position)}`;
+                    } else {
+                        alert('Грешка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при преместване на камерата');
+                });
+        }
+        
+        // Функция за спиране на движението
+        function stopMovement() {
+            fetch('/ptz/simple/stop')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        alert('Камерата е спряна успешно');
+                    } else {
+                        alert('Грешка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при спиране на камерата');
+                });
+        }
+        
+        // Функция за изпълнение на диагностика
+        function runDiagnostics() {
+            const resultsDiv = document.getElementById('diagnosticsResults');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = 'Изпълнение на диагностични тестове, моля изчакайте...';
+            
+            fetch('/ptz/simple/diagnostics')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        // Форматираме резултатите като JSON с отстъпи
+                        const formattedResults = JSON.stringify(data.diagnostics, null, 2);
+                        resultsDiv.innerHTML = formattedResults;
+                    } else {
+                        resultsDiv.innerHTML = 'Грешка: ' + data.message;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resultsDiv.innerHTML = 'Грешка при изпълнение на диагностика: ' + error;
+                });
+        }
+        
+        // Помощна функция за получаване на име на позиция
+        function getPositionName(position) {
+            // Ако имаме предварително зададени позиции
+            const presetButtons = document.querySelectorAll('.preset-button');
+            for (let button of presetButtons) {
+                if (button.onclick.toString().includes(`moveToPosition(${position})`)) {
+                    return button.innerText.trim().split(' ')[0]; // Вземаме само името без "✓"
+                }
+            }
+            
+            // Ако няма съвпадение, връщаме общо име
+            return `Позиция ${position}`;
+        }
+        
+        // Функция за обновяване на конфигурацията
+        function updateConfig(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(document.getElementById('configForm'));
+            
+            fetch('/ptz/simple/config', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    alert('Настройките са запазени успешно!');
+                    // Презареждаме страницата, за да видим промените
+                    window.location.reload();
+                } else {
+                    alert('Грешка: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Грешка при запазване на настройките');
+            });
+            
+            return false;
+        }
+    </script>
+</body>
+</html>

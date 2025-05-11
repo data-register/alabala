@@ -1,7 +1,9 @@
-<!-- Файл: templates/index.html -->
+# Файл: templates/index.html
 <!DOCTYPE html>
-<html>
+<html lang="bg">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - ObzorWeather</title>
     <style>
         body { 
@@ -164,7 +166,8 @@
                 <div class="status-indicator status-{{ 'active' if ptz_config.status == 'ok' else 'warning' if ptz_config.status == 'initializing' else 'inactive' }}"></div>
                 <span>{{ 'Активен' if ptz_config.status == 'ok' else 'Инициализиране' if ptz_config.status == 'initializing' else 'Неактивен' }}</span>
             </div>
-            <a href="/ptz/control" class="module-button">Управление</a>
+            <!-- ЗАМЕНЕНО: <a href="/ptz/control" class="module-button">Управление</a> -->
+            <a href="/ptz/simple" class="module-button">Управление</a>
         </div>
         
         <!-- PTZ Capture Module -->
