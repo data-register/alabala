@@ -12,6 +12,7 @@ from io import BytesIO
 from PIL import Image
 from typing import Dict, Any, Optional, Tuple
 import base64
+import asyncio
 
 from .config import (
     get_analysis_config, 
@@ -296,15 +297,31 @@ async def perform_image_analysis() -> AnalysisResult:
         update_analysis_config(status="error")
         return result
 
+def run_async_analysis():
+    """Изпълнява асинхронен анализ в синхронен контекст"""
+    try:
+        return asyncio.run(perform_image_analysis())
+    except RuntimeError as e:
+        if "There is no current event loop in thread" in str(e):
+            # Създаваме нов event loop и го използваме
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(perform_image_analysis())
+            finally:
+                loop.close()
+        else:
+            # Ако е друга RuntimeError, вдигаме я нагоре
+            raise
+
 def analysis_loop():
     """Основен цикъл за периодичен анализ на изображения"""
     config = get_analysis_config()
     
     while config.running:
         try:
-            # Изпълняваме анализ асинхронно
-            import asyncio
-            result = asyncio.run(perform_image_analysis())
+            # Изпълняваме анализ 
+            result = run_async_analysis()
             
             # Добавяме резултата в историята
             add_analysis_result(result)

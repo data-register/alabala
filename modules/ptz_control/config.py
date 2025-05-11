@@ -6,7 +6,8 @@
 import os
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
+
 
 class PTZControlConfig(BaseModel):
     """Конфигурационен модел за PTZ контрол"""
@@ -33,6 +34,14 @@ class PTZControlConfig(BaseModel):
     status: str = "initializing"
     last_move_time: Optional[datetime] = None
     current_position: int = 0
+    
+    # Поддръжка на колекции (пресети)
+    collections_supported: bool = False
+    collections: Dict[str, Dict[str, Any]] = {}  # Списък колекции (пресети)
+    last_collection_id: Optional[str] = None  # Последно използвана колекция
+    position_to_collection_map: Dict[int, str] = {}  # Мапинг позиция->колекция
+    collection_to_position_map: Dict[str, int] = {}  # Мапинг колекция->позиция
+
 
 # Глобална конфигурация на модула
 _config = PTZControlConfig(
@@ -48,9 +57,11 @@ _config = PTZControlConfig(
     password=os.getenv("PTZ_PASSWORD", "admin")
 )
 
+
 def get_ptz_config() -> PTZControlConfig:
     """Връща текущата конфигурация на модула"""
     return _config
+
 
 def update_ptz_config(**kwargs) -> PTZControlConfig:
     """Обновява конфигурацията с нови стойности"""
@@ -62,3 +73,71 @@ def update_ptz_config(**kwargs) -> PTZControlConfig:
             setattr(_config, key, value)
     
     return _config
+
+
+def update_collection_mappings(collections: Dict[str, Dict[str, Any]]) -> None:
+    """
+    Актуализира мапингите между позиции и колекции
+    
+    Args:
+        collections: Речник с колекции от API
+    """
+    global _config
+    
+    # Актуализираме колекциите в конфигурацията
+    _config.collections = collections
+    
+    # Ако нямаме колекции, няма нужда от мапинг
+    if not collections:
+        _config.position_to_collection_map = {}
+        _config.collection_to_position_map = {}
+        return
+    
+    # Създаваме нови празни мапинги
+    position_to_collection = {}
+    collection_to_position = {}
+    
+    # Опитваме първо да съпоставим колекции към позиции според имената
+    position_names = {
+        0: ["покой", "home", "default", "по подразбиране", "основна", "center", 
+            "център"],
+        1: ["изток", "east", "дясно", "right"],
+        2: ["запад", "west", "ляво", "left"],
+        3: ["север", "north", "горе", "up"],
+        4: ["юг", "south", "долу", "down"]
+    }
+    
+    # Опитваме да намерим съвпадения по име
+    for collection_id, collection_data in collections.items():
+        name = collection_data.get("name", "").lower()
+        
+        # Търсим съвпадение с име на позиция
+        for position_id, name_list in position_names.items():
+            if any(position_name in name for position_name in name_list):
+                position_to_collection[position_id] = collection_id
+                collection_to_position[collection_id] = position_id
+                break
+    
+    # Ако не сме успели да съпоставим всички позиции или имаме твърде малко колекции
+    # Просто картографираме според индексите
+    if len(position_to_collection) < min(len(_config.positions), len(collections)):
+        # Сортираме колекциите по ID (или по име ако ID-тата не са числа)
+        sorted_collections = sorted(
+            collections.items(), 
+            key=lambda x: int(x[0]) if x[0].isdigit() else 0
+        )
+        
+        # Създаваме нови празни мапинги
+        position_to_collection = {}
+        collection_to_position = {}
+        
+        # Съпоставяме позиция към колекция по ред
+        for i, (collection_id, _) in enumerate(sorted_collections):
+            position_id = i
+            if position_id in _config.positions:
+                position_to_collection[position_id] = collection_id
+                collection_to_position[collection_id] = position_id
+    
+    # Обновяваме мапингите в конфигурацията
+    _config.position_to_collection_map = position_to_collection
+    _config.collection_to_position_map = collection_to_position

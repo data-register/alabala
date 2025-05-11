@@ -9,9 +9,6 @@ jinja2
 pillow
 requests
 python-dotenv
-# Библиотека за Imou камери с PTZ поддръжка
-imouapi>=1.0.14
+# Библиотека за Imou камери с PTZ поддръжка - обновена до най-новата версия
+imouapi>=1.0.15
 aiohttp>=3.8.0
-
-# Предишната библиотека за ONVIF (вече не е необходима)
-# onvif-zeep==0.2.12

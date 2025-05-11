@@ -44,10 +44,14 @@ for dir_name in required_dirs:
         
         # За ptz_frames създаваме и поддиректории за всяка позиция
         if dir_name == "ptz_frames":
+            # Първоначално създаваме стандартните директории (за обратна съвместимост)
             for pos in range(5):  # Позиции 0-4
                 pos_dir = os.path.join(full_path, f"position_{pos}")
                 os.makedirs(pos_dir, exist_ok=True)
                 logger.info(f"Поддиректория създадена/проверена: {pos_dir}")
+            
+            # След започване на приложението, модулът ptz_control ще създаде
+            # динамично директории за всички открити пресети
                 
                 # Проверка дали директорията е записваема
                 try:
@@ -175,13 +179,19 @@ async def health():
         # За ptz_frames проверяваме и поддиректориите
         if dir_name == "ptz_frames" and os.path.exists(full_path):
             directory_status[dir_name]["subdirectories"] = {}
-            for pos in range(5):
-                pos_dir = os.path.join(full_path, f"position_{pos}")
-                directory_status[dir_name]["subdirectories"][f"position_{pos}"] = {
-                    "exists": os.path.exists(pos_dir),
-                    "is_writable": os.access(pos_dir, os.W_OK) if os.path.exists(pos_dir) else False,
-                    "path": pos_dir
-                }
+            
+            # Проверяваме динамично всички създадени директории в ptz_frames
+            directories = os.listdir(full_path)
+            position_dirs = [d for d in directories if d.startswith("position_")]
+            
+            for dir_name in position_dirs:
+                pos_dir = os.path.join(full_path, dir_name)
+                if os.path.isdir(pos_dir):
+                    directory_status[dir_name]["subdirectories"][dir_name] = {
+                        "exists": True,
+                        "is_writable": os.access(pos_dir, os.W_OK),
+                        "path": pos_dir
+                    }
     
     return {
         "status": "healthy",
@@ -221,6 +231,7 @@ if __name__ == "__main__":
     # Проверка за наличие на Imou API данни
     if not (os.getenv("IMOU_APP_ID") and os.getenv("IMOU_APP_SECRET") and os.getenv("IMOU_DEVICE_SN")):
         logger.warning("IMOU_APP_ID, IMOU_APP_SECRET или IMOU_DEVICE_SN не са налични! PTZ Control модулът ще използва стойности по подразбиране.")
+        logger.info("За използване на произволен брой пресети, задайте тези environment променливи и създайте пресети в Imou Life приложението.")
     
     # Информация за пътищата в системата
     logger.info(f"Текуща директория: {os.getcwd()}")

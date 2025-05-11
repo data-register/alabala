@@ -114,6 +114,48 @@
             font-weight: bold;
         }
         
+        /* Стил за секцията с колекции */
+        .collections-section {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            width: 100%;
+        }
+        .collections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .collection-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .collection-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .collection-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .collection-button {
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+        .collection-button:hover {
+            background-color: #138496;
+        }
+        
         /* Стил за формуляра */
         .config-form {
             margin-top: 20px;
@@ -185,15 +227,40 @@
             </div>
             
             <div class="preset-positions">
-                <button class="preset-button {% if current_position == 0 %}active{% endif %}" onclick="moveToPosition(0)">Покой</button>
-                <button class="preset-button {% if current_position == 1 %}active{% endif %}" onclick="moveToPosition(1)">Изток</button>
-                <button class="preset-button {% if current_position == 2 %}active{% endif %}" onclick="moveToPosition(2)">Запад</button>
-                <button class="preset-button {% if current_position == 3 %}active{% endif %}" onclick="moveToPosition(3)">Север</button>
-                <button class="preset-button {% if current_position == 4 %}active{% endif %}" onclick="moveToPosition(4)">Юг</button>
+                {% for pos_id, pos_data in positions.items() %}
+                <button class="preset-button {% if current_position == pos_id %}active{% endif %}" 
+                        onclick="moveToPosition({{ pos_id }})">
+                    {{ pos_data.name }}
+                </button>
+                {% endfor %}
             </div>
             
             <button onclick="stopMovement()" class="preset-button" style="background-color: #dc3545;">Стоп</button>
         </div>
+        
+        {% if collections_supported and collections %}
+        <div class="collections-section">
+            <h2>Imou Пресети (Колекции)</h2>
+            <p>Налични са {{ collections|length }} пресета, импортирани от Imou API.</p>
+            
+            <div class="collections-grid">
+                {% for collection in collections %}
+                <div class="collection-item">
+                    <div class="collection-name">{{ collection.name }}</div>
+                    <div class="collection-details">
+                        ID: {{ collection.id }}
+                        {% if collection.position_id is not none %}
+                        <br>Mapped to: {{ collection.position_name }} ({{ collection.position_id }})
+                        {% endif %}
+                    </div>
+                    <button class="collection-button" onclick="moveToCollection('{{ collection.id }}')">
+                        Премести
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
         
         <div class="info">
             <p><strong>Статус:</strong>
@@ -205,6 +272,12 @@
             
             <!-- Информация за Imou API -->
             <p><strong>Imou Устройство:</strong> {{ config.device_serial_number }}</p>
+            
+            {% if collections_supported %}
+            <p><strong>Поддръжка на колекции:</strong> Да ({{ config.collections|length }} колекции)</p>
+            {% else %}
+            <p><strong>Поддръжка на колекции:</strong> Не</p>
+            {% endif %}
             
             <!-- Запазена информация за съвместимост -->
             <p><small>Стара конфигурация (за съвместимост):</small></p>
@@ -283,14 +356,35 @@
                             button.classList.remove('active');
                         });
                         
-                        // Задаваме активен клас на избрания бутон
-                        const buttons = document.querySelectorAll('.preset-button');
-                        buttons[position].classList.add('active');
+                        // Намираме бутона за тази позиция
+                        const buttons = Array.from(document.querySelectorAll('.preset-button'));
+                        const posButton = buttons.find(btn => btn.onclick.toString().includes(`moveToPosition(${position})`));
+                        
+                        if (posButton) {
+                            posButton.classList.add('active');
+                        }
                         
                         // Обновяваме информацията за текущата позиция
                         const infoSection = document.querySelector('.info');
                         const positionInfo = infoSection.querySelector('p:nth-child(2)');
                         positionInfo.innerHTML = `<strong>Текуща позиция:</strong> ${getPositionName(position)}`;
+                    } else {
+                        alert('Грешка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при преместване на камерата');
+                });
+        }
+        
+        // Функция за преместване към определена колекция (пресет)
+        function moveToCollection(collectionId) {
+            fetch(`/ptz/control/collection/${collectionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        alert(`Камерата успешно преместена към пресет: ${data.collection_name}`);
                     } else {
                         alert('Грешка: ' + data.message);
                     }
@@ -320,15 +414,16 @@
         
         // Помощна функция за получаване на име на позиция
         function getPositionName(position) {
-            const positions = {
-                0: 'Покой',
-                1: 'Изток',
-                2: 'Запад',
-                3: 'Север',
-                4: 'Юг'
-            };
+            // Ако имаме предварително зададени позиции
+            const presetButtons = document.querySelectorAll('.preset-button');
+            for (let button of presetButtons) {
+                if (button.onclick.toString().includes(`moveToPosition(${position})`)) {
+                    return button.innerText.trim();
+                }
+            }
             
-            return positions[position] || `Позиция ${position}`;
+            // Ако няма съвпадение, връщаме общо име
+            return `Позиция ${position}`;
         }
         
         // Функция за обновяване на конфигурацията

@@ -1,152 +1,279 @@
 # Файл: modules/ptz_control/api.py
-"""
-API маршрути за PTZ Control модул
-"""
 
-import os
-from fastapi import APIRouter, HTTPException, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
+from typing import Dict, Any, List, Optional
 
-from .config import get_ptz_config, update_ptz_config
-from .controller import move_to_position, stop_movement, get_current_position, initialize_camera
+from .config import get_ptz_config
+from .controller import (
+    move_to_position, move_to_collection,
+    get_collections, get_current_position, stop_movement
+)
 from utils.logger import setup_logger
 
 # Инициализиране на логър
-logger = setup_logger("ptz_api")
+logger = setup_logger("ptz_control_api")
 
-# Регистриране на API router
-router = APIRouter()
+router = APIRouter(prefix="/api/ptz", tags=["PTZ Control"])
 
-# Настройване на шаблони
-templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates")
-templates = Jinja2Templates(directory=templates_dir)
 
-@router.get("/", response_class=HTMLResponse)
-async def ptz_index(request: Request):
-    """Страница за PTZ контрол модула"""
-    config = get_ptz_config()
+@router.get("/positions")
+async def get_available_positions():
+    """Връща списък с наличните позиции"""
+    try:
+        config = get_ptz_config()
+        positions = []
+        
+        for position_id, data in config.positions.items():
+            # Проверяваме дали имаме съответна колекция за тази позиция
+            collection_id = config.position_to_collection_map.get(position_id)
+            collection_name = None
+            if collection_id and collection_id in config.collections:
+                collection_name = config.collections[collection_id].get("name")
+                
+            positions.append({
+                "id": position_id,
+                "name": data.get("name", f"Позиция {position_id}"),
+                "description": data.get("description", ""),
+                "collection_id": collection_id,
+                "collection_name": collection_name
+            })
+            
+        return JSONResponse({
+            "status": "ok",
+            "positions": positions,
+            "current_position": config.current_position
+        })
     
-    return templates.TemplateResponse("ptz_index.html", {
-        "request": request,
-        "config": config,
-        "current_position": config.current_position,
-        "positions": config.positions,
-        "status": config.status,
-        "status_text": "OK" if config.status == "ok" else "Грешка" if config.status == "error" else "Инициализация"
-    })
+    except Exception as e:
+        logger.error(f"Грешка при получаване на позиции: {str(e)}")
+        return JSONResponse({
+            "status": "error",
+            "message": f"Грешка: {str(e)}"
+        }, status_code=500)
 
-@router.get("/info")
-async def ptz_info():
-    """Връща информация за текущото състояние на PTZ камерата"""
-    config = get_ptz_config()
-    
-    return JSONResponse({
-        "status": config.status,
-        "current_position": get_current_position(),
-        "camera_ip": config.camera_ip,
-        "camera_port": config.camera_port
-    })
 
-@router.get("/position/{position_id}")
-async def set_position(position_id: int):
+@router.get("/move/{position_id}")
+async def move_camera_to_position(position_id: int):
     """Премества камерата към определена позиция"""
     try:
         position_id = int(position_id)
+        logger.info(f"API заявка за преместване към позиция {position_id}")
         
-        if position_id not in get_ptz_config().positions:
+        config = get_ptz_config()
+        if position_id not in config.positions:
             return JSONResponse({
                 "status": "error",
                 "message": f"Невалидна позиция: {position_id}"
             }, status_code=400)
         
-        success = move_to_position(position_id)
+        # Проверяваме дали имаме колекция за тази позиция
+        collection_id = None
+        if config.collections_supported and position_id in config.position_to_collection_map:
+            collection_id = config.position_to_collection_map[position_id]
+            logger.info(f"Позиция {position_id} съответства на колекция {collection_id}")
+        
+        # Преместваме камерата
+        success = await move_to_position(position_id)
         
         if success:
+            position_name = config.positions[position_id].get("name", f"Позиция {position_id}")
+            message = f"Камерата успешно преместена към позиция {position_id} ({position_name})"
+            
+            # Добавяме информация за колекцията, ако е използвана
+            if collection_id:
+                collection_name = config.collections.get(collection_id, {}).get(
+                    "name", f"Колекция {collection_id}"
+                )
+                message += f" чрез колекция {collection_id} ({collection_name})"
+                
             return JSONResponse({
                 "status": "ok",
-                "message": f"Камерата успешно преместена към позиция {position_id}",
-                "current_position": get_current_position()
+                "message": message,
+                "position_id": position_id,
+                "position_name": position_name,
+                "collection_id": collection_id
             })
         else:
             return JSONResponse({
                 "status": "error",
-                "message": "Грешка при преместване на камерата"
+                "message": f"Не може да се премести камерата към позиция {position_id}"
             }, status_code=500)
     
     except Exception as e:
-        logger.error(f"Грешка при задаване на позиция: {str(e)}")
+        logger.error(f"Грешка при преместване към позиция: {str(e)}")
         return JSONResponse({
             "status": "error",
             "message": f"Грешка: {str(e)}"
         }, status_code=500)
+
+
+@router.get("/collections")
+async def get_available_collections():
+    """Връща списък с наличните колекции (пресети)"""
+    try:
+        # Извикваме get_collections, за да обновим списъка с колекции
+        await get_collections()
+        
+        # Вземаме актуалната конфигурация
+        config = get_ptz_config()
+        
+        # Подготвяме информация за UI
+        collection_info = []
+        for collection_id, data in config.collections.items():
+            position_id = config.collection_to_position_map.get(collection_id)
+            position_name = None
+            if position_id is not None and position_id in config.positions:
+                position_name = config.positions[position_id].get("name")
+                
+            collection_info.append({
+                "id": collection_id,
+                "name": data.get("name", f"Preset {collection_id}"),
+                "position_id": position_id,
+                "position_name": position_name
+            })
+        
+        return JSONResponse({
+            "status": "ok",
+            "message": f"Намерени {len(config.collections)} колекции",
+            "collections": collection_info,
+            "position_to_collection": config.position_to_collection_map,
+            "collection_to_position": config.collection_to_position_map,
+            "collections_supported": config.collections_supported
+        })
+    
+    except Exception as e:
+        logger.error(f"Грешка при получаване на колекции: {str(e)}")
+        return JSONResponse({
+            "status": "error",
+            "message": f"Грешка: {str(e)}"
+        }, status_code=500)
+
+
+@router.get("/collection/{collection_id}")
+async def move_camera_to_collection(collection_id: str):
+    """Премества камерата към определена колекция (пресет)"""
+    try:
+        logger.info(f"API заявка за преместване към колекция {collection_id}")
+        
+        # Преместваме камерата
+        success = await move_to_collection(collection_id)
+        
+        if success:
+            config = get_ptz_config()
+            collection_name = config.collections.get(collection_id, {}).get(
+                "name", f"Колекция {collection_id}"
+            )
+            
+            # Проверяваме дали имаме съответна позиция
+            position_id = config.collection_to_position_map.get(collection_id)
+            position_info = ""
+            if position_id is not None:
+                position_name = config.positions.get(position_id, {}).get(
+                    "name", f"Позиция {position_id}"
+                )
+                position_info = f" (съответства на позиция {position_id}: {position_name})"
+                
+            return JSONResponse({
+                "status": "ok",
+                "message": f"Камерата успешно преместена към колекция {collection_id} "
+                          f"({collection_name}){position_info}",
+                "collection_id": collection_id,
+                "collection_name": collection_name,
+                "position_id": position_id
+            })
+        else:
+            return JSONResponse({
+                "status": "error",
+                "message": f"Не може да се премести камерата към колекция {collection_id}"
+            }, status_code=500)
+    
+    except Exception as e:
+        logger.error(f"Грешка при преместване към колекция: {str(e)}")
+        return JSONResponse({
+            "status": "error",
+            "message": f"Грешка: {str(e)}"
+        }, status_code=500)
+
+
+@router.get("/refresh")
+async def refresh_collections():
+    """Обновява списъка с налични колекции (пресети)"""
+    try:
+        logger.info("API заявка за обновяване на колекциите")
+        
+        # Извикваме get_collections за да обновим списъка
+        collections = await get_collections()
+        
+        if collections:
+            config = get_ptz_config()
+            return JSONResponse({
+                "status": "ok",
+                "message": f"Успешно обновени {len(collections)} колекции",
+                "collections": collections,
+                "position_to_collection": config.position_to_collection_map,
+                "collection_to_position": config.collection_to_position_map
+            })
+        else:
+            return JSONResponse({
+                "status": "warning",
+                "message": "Не са намерени колекции или възникна грешка"
+            })
+    
+    except Exception as e:
+        logger.error(f"Грешка при обновяване на колекциите: {str(e)}")
+        return JSONResponse({
+            "status": "error",
+            "message": f"Грешка: {str(e)}"
+        }, status_code=500)
+
+
+@router.get("/status")
+async def get_ptz_status():
+    """Връща текущия статус на PTZ контрола"""
+    try:
+        config = get_ptz_config()
+        position_info = get_current_position()
+        
+        return JSONResponse({
+            "status": "ok",
+            "ptz_status": config.status,
+            "current_position": position_info,
+            "collections_supported": config.collections_supported,
+            "collections_count": len(config.collections) if config.collections else 0,
+            "last_move_time": config.last_move_time
+        })
+    
+    except Exception as e:
+        logger.error(f"Грешка при получаване на PTZ статус: {str(e)}")
+        return JSONResponse({
+            "status": "error",
+            "message": f"Грешка: {str(e)}"
+        }, status_code=500)
+
 
 @router.get("/stop")
-async def stop():
+async def stop_camera_movement():
     """Спира текущото движение на камерата"""
     try:
-        success = stop_movement()
+        logger.info("API заявка за спиране на движението")
+        
+        success = await stop_movement()
         
         if success:
             return JSONResponse({
                 "status": "ok",
-                "message": "Камерата е спряна успешно"
+                "message": "Движението на камерата е спряно"
             })
         else:
             return JSONResponse({
                 "status": "error",
-                "message": "Грешка при спиране на камерата"
+                "message": "Не може да се спре движението на камерата"
             }, status_code=500)
     
     except Exception as e:
-        logger.error(f"Грешка при спиране на камерата: {str(e)}")
+        logger.error(f"Грешка при спиране на движението: {str(e)}")
         return JSONResponse({
             "status": "error",
             "message": f"Грешка: {str(e)}"
         }, status_code=500)
-
-@router.post("/config")
-async def update_config(
-    camera_ip: str = Form(None),
-    camera_port: int = Form(None),
-    username: str = Form(None),
-    password: str = Form(None),
-    move_speed: float = Form(None)
-):
-    """Обновява конфигурацията на PTZ модула"""
-    update_params = {}
-    
-    if camera_ip is not None:
-        update_params["camera_ip"] = camera_ip
-    
-    if camera_port is not None:
-        update_params["camera_port"] = camera_port
-    
-    if username is not None:
-        update_params["username"] = username
-    
-    if password is not None:
-        update_params["password"] = password
-    
-    if move_speed is not None:
-        update_params["move_speed"] = move_speed
-    
-    # Обновяваме конфигурацията
-    updated_config = update_ptz_config(**update_params)
-    
-    # Ако има промени в параметрите за връзка, опитваме се да преинициализираме
-    if any(param in update_params for param in ["camera_ip", "camera_port", "username", "password"]):
-        initialize_camera()
-    
-    return JSONResponse({
-        "status": "ok",
-        "message": "Конфигурацията е обновена успешно",
-        "config": {
-            "camera_ip": updated_config.camera_ip,
-            "camera_port": updated_config.camera_port,
-            "username": updated_config.username,
-            "password": "********",  # Не връщаме истинската парола
-            "move_speed": updated_config.move_speed
-        }
-    })

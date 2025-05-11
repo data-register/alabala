@@ -12,7 +12,7 @@ from datetime import datetime
 from io import BytesIO
 from PIL import Image
 from typing import Dict, Any, Optional, Tuple, List
-
+import asyncio
 import base64
 
 from .config import (
@@ -198,7 +198,6 @@ async def analyze_image_with_anthropic(image_data: bytes, position_id: int) -> T
                     # Намираме началото и края на JSON обекта
                     start_idx = content.find('{')
                     end_idx = content.rfind('}') + 1
-                    # Файл: modules/multi_image_analysis/analyzer.py (продължение)
                     
                     if start_idx >= 0 and end_idx > start_idx:
                         json_str = content[start_idx:end_idx]
@@ -417,15 +416,31 @@ async def perform_multi_image_analysis() -> MultiAnalysisResult:
         update_analysis_config(status="error")
         return result
 
+def run_async_analysis():
+    """Изпълнява асинхронен анализ в синхронен контекст"""
+    try:
+        return asyncio.run(perform_multi_image_analysis())
+    except RuntimeError as e:
+        if "There is no current event loop in thread" in str(e):
+            # Създаваме нов event loop и го използваме
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(perform_multi_image_analysis())
+            finally:
+                loop.close()
+        else:
+            # Ако е друга RuntimeError, вдигаме я нагоре
+            raise
+
 def analysis_loop():
     """Основен цикъл за периодичен анализ на изображения"""
     config = get_analysis_config()
     
     while config.running:
         try:
-            # Изпълняваме анализ асинхронно
-            import asyncio
-            result = asyncio.run(perform_multi_image_analysis())
+            # Изпълняваме анализ
+            result = run_async_analysis()
             
             # Добавяме резултата в историята
             add_analysis_result(result)
