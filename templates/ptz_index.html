@@ -1,0 +1,363 @@
+<!-- Файл: templates/ptz_index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PTZ Control - ObzorWeather</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 { color: #0066cc; text-align: center; }
+        .container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .control-section { 
+            margin: 20px 0; 
+            border: 1px solid #ccc; 
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            width: 100%;
+        }
+        .info { 
+            background-color: #e7f2ff; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin-top: 20px;
+            width: 100%;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status-ok { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+        .status-warning { background-color: #fff3cd; color: #856404; }
+        
+        /* Стил за контролите на PTZ */
+        .ptz-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px 0;
+        }
+        .ptz-row {
+            display: flex;
+            justify-content: center;
+            margin: 5px 0;
+        }
+        .ptz-button {
+            width: 80px;
+            height: 80px;
+            margin: 5px;
+            border: none;
+            border-radius: 50%;
+            background-color: #0066cc;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        .ptz-button:hover {
+            background-color: #0055aa;
+        }
+        .ptz-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .ptz-center {
+            background-color: #28a745;
+        }
+        .ptz-center:hover {
+            background-color: #218838;
+        }
+        
+        /* Стил за предварително зададени позиции */
+        .preset-positions {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin: 20px 0;
+            width: 100%;
+        }
+        .preset-button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background-color: #6c757d;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .preset-button:hover {
+            background-color: #5a6268;
+        }
+        .preset-button.active {
+            background-color: #28a745;
+            font-weight: bold;
+        }
+        
+        /* Стил за формуляра */
+        .config-form {
+            margin-top: 20px;
+            width: 100%;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="number"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0055aa;
+        }
+    </style>
+</head>
+<body>
+    <h1>PTZ Control - ObzorWeather</h1>
+    <div class="container">
+        <div class="control-section">
+            <h2>Управление на PTZ камера</h2>
+            
+            <div class="ptz-controls">
+                <div class="ptz-row">
+                    <button class="ptz-button" onclick="moveToPosition(3)" title="Север">
+                        <span>&#x2B06;</span>
+                    </button>
+                </div>
+                <div class="ptz-row">
+                    <button class="ptz-button" onclick="moveToPosition(1)" title="Изток">
+                        <span>&#x27A1;</span>
+                    </button>
+                    <button class="ptz-button ptz-center" onclick="moveToPosition(0)" title="Покой">
+                        <span>&#x23F9;</span>
+                    </button>
+                    <button class="ptz-button" onclick="moveToPosition(2)" title="Запад">
+                        <span>&#x2B05;</span>
+                    </button>
+                </div>
+                <div class="ptz-row">
+                    <button class="ptz-button" onclick="moveToPosition(4)" title="Юг">
+                        <span>&#x2B07;</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="preset-positions">
+                <button class="preset-button {% if current_position == 0 %}active{% endif %}" onclick="moveToPosition(0)">Покой</button>
+                <button class="preset-button {% if current_position == 1 %}active{% endif %}" onclick="moveToPosition(1)">Изток</button>
+                <button class="preset-button {% if current_position == 2 %}active{% endif %}" onclick="moveToPosition(2)">Запад</button>
+                <button class="preset-button {% if current_position == 3 %}active{% endif %}" onclick="moveToPosition(3)">Север</button>
+                <button class="preset-button {% if current_position == 4 %}active{% endif %}" onclick="moveToPosition(4)">Юг</button>
+            </div>
+            
+            <button onclick="stopMovement()" class="preset-button" style="background-color: #dc3545;">Стоп</button>
+        </div>
+        
+        <div class="info">
+            <p><strong>Статус:</strong>
+                <span class="status {% if status == 'ok' %}status-ok{% elif status == 'error' %}status-error{% else %}status-warning{% endif %}">
+                    {{ status_text }}
+                </span>
+            </p>
+            <p><strong>Текуща позиция:</strong> {{ positions[current_position]['name'] }}</p>
+            
+            <!-- Информация за Imou API -->
+            <p><strong>Imou Устройство:</strong> {{ config.device_serial_number }}</p>
+            
+            <!-- Запазена информация за съвместимост -->
+            <p><small>Стара конфигурация (за съвместимост):</small></p>
+            <p><small><strong>IP адрес на камерата:</strong> {{ config.camera_ip }}</small></p>
+            <p><small><strong>Порт:</strong> {{ config.camera_port }}</small></p>
+        </div>
+        
+        <div class="config-form">
+            <h2>Настройки на PTZ модула</h2>
+            <form id="configForm" onsubmit="return updateConfig(event)">
+                <!-- Нова секция за Imou API настройки -->
+                <div class="form-group">
+                    <h3>Imou API настройки</h3>
+                    
+                    <div class="form-group">
+                        <label for="app_id">Imou App ID:</label>
+                        <input type="text" id="app_id" name="app_id" value="{{ config.app_id }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="app_secret">Imou App Secret:</label>
+                        <input type="password" id="app_secret" name="app_secret" placeholder="Въведете App Secret">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="device_serial_number">Сериен номер на устройството:</label>
+                        <input type="text" id="device_serial_number" name="device_serial_number" value="{{ config.device_serial_number }}">
+                    </div>
+                </div>
+                
+                <!-- Стара секция за ONVIF настройки (за съвместимост) -->
+                <div class="form-group">
+                    <h3>Резервни ONVIF настройки</h3>
+                    <small>Тези настройки се запазват за съвместимост, но не се използват при Imou API.</small>
+                    
+                    <div class="form-group">
+                        <label for="camera_ip">IP адрес на камерата:</label>
+                        <input type="text" id="camera_ip" name="camera_ip" value="{{ config.camera_ip }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="camera_port">Порт:</label>
+                        <input type="number" id="camera_port" name="camera_port" value="{{ config.camera_port }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="username">Потребителско име:</label>
+                        <input type="text" id="username" name="username" value="{{ config.username }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Парола:</label>
+                        <input type="password" id="password" name="password" placeholder="Въведете нова парола">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="move_speed">Скорост на движение (0.0 - 1.0):</label>
+                    <input type="number" id="move_speed" name="move_speed" value="{{ config.move_speed }}" min="0.1" max="1.0" step="0.1">
+                </div>
+                
+                <button type="submit">Запази настройките</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Функция за преместване към определена позиция
+        function moveToPosition(position) {
+            fetch(`/ptz/control/position/${position}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        // Обновяваме активния клас на бутоните
+                        document.querySelectorAll('.preset-button').forEach(button => {
+                            button.classList.remove('active');
+                        });
+                        
+                        // Задаваме активен клас на избрания бутон
+                        const buttons = document.querySelectorAll('.preset-button');
+                        buttons[position].classList.add('active');
+                        
+                        // Обновяваме информацията за текущата позиция
+                        const infoSection = document.querySelector('.info');
+                        const positionInfo = infoSection.querySelector('p:nth-child(2)');
+                        positionInfo.innerHTML = `<strong>Текуща позиция:</strong> ${getPositionName(position)}`;
+                    } else {
+                        alert('Грешка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при преместване на камерата');
+                });
+        }
+        
+        // Функция за спиране на движението
+        function stopMovement() {
+            fetch('/ptz/control/stop')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        alert('Камерата е спряна успешно');
+                    } else {
+                        alert('Грешка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при спиране на камерата');
+                });
+        }
+        
+        // Помощна функция за получаване на име на позиция
+        function getPositionName(position) {
+            const positions = {
+                0: 'Покой',
+                1: 'Изток',
+                2: 'Запад',
+                3: 'Север',
+                4: 'Юг'
+            };
+            
+            return positions[position] || `Позиция ${position}`;
+        }
+        
+        // Функция за обновяване на конфигурацията
+        function updateConfig(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(document.getElementById('configForm'));
+            
+            fetch('/ptz/control/config', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    alert('Настройките са запазени успешно!');
+                    // Презареждаме страницата, за да видим промените
+                    window.location.reload();
+                } else {
+                    alert('Грешка: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Грешка при запазване на настройките');
+            });
+            
+            return false;
+        }
+    </script>
+</body>
+</html>

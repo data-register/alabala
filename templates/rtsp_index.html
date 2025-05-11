@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }} - ObzorWeather</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 { color: #0066cc; text-align: center; }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .modules-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .module-card {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 300px;
+            transition: transform 0.3s;
+        }
+        .module-card:hover {
+            transform: translateY(-5px);
+        }
+        .module-icon {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .module-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .module-description {
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .module-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-active {
+            background-color: #28a745;
+        }
+        .status-inactive {
+            background-color: #dc3545;
+        }
+        .status-warning {
+            background-color: #ffc107;
+        }
+        .module-button {
+            display: block;
+            text-align: center;
+            background-color: #0066cc;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+        .module-button:hover {
+            background-color: #0055aa;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ObzorWeather System</h1>
+        <p>Модулна система за метеорологичен мониторинг</p>
+    </div>
+    
+    <div class="modules-container">
+        <!-- RTSP Capture Module -->
+        <div class="module-card">
+            <div class="module-icon">📹</div>
+            <div class="module-title">RTSP Capture</div>
+            <div class="module-description">
+                Модул за извличане на кадри от RTSP видео поток
+            </div>
+            <div class="module-status">
+                <div class="status-indicator status-{{ 'active' if rtsp_config.status == 'ok' else 'warning' if rtsp_config.status == 'initializing' else 'inactive' }}"></div>
+                <span>{{ 'Активен' if rtsp_config.status == 'ok' else 'Инициализиране' if rtsp_config.status == 'initializing' else 'Неактивен' }}</span>
+            </div>
+            <a href="/rtsp" class="module-button">Управление</a>
+        </div>
+        
+        <!-- Image Analysis Module (Placeholder) -->
+        <div class="module-card">
+            <div class="module-icon">🔍</div>
+            <div class="module-title">Image Analysis</div>
+            <div class="module-description">
+                AI анализ на изображения от камерата (в разработка)
+            </div>
+            <div class="module-status">
+                <div class="status-indicator status-inactive"></div>
+                <span>Не е активен</span>
+            </div>
+            <a href="#" class="module-button" style="background-color: #6c757d;">Очаквайте скоро</a>
+        </div>
+        
+        <!-- Weather Data Module (Placeholder) -->
+        <div class="module-card">
+            <div class="module-icon">🌤️</div>
+            <div class="module-title">Weather Data</div>
+            <div class="module-description">
+                Извличане на метеорологични данни от API (в разработка)
+            </div>
+            <div class="module-status">
+                <div class="status-indicator status-inactive"></div>
+                <span>Не е активен</span>
+            </div>
+            <a href="#" class="module-button" style="background-color: #6c757d;">Очаквайте скоро</a>
+        </div>
+    </div>
+    
+    <div class="modules-container" style="margin-top: 20px;">
+        <!-- System Dashboard -->
+        <div class="module-card">
+            <div class="module-icon">📊</div>
+            <div class="module-title">System Dashboard</div>
+            <div class="module-description">
+                Информационно табло с общ поглед върху системата
+            </div>
+            <div class="module-status">
+                <div class="status-indicator status-warning"></div>
+                <span>В разработка</span>
+            </div>
+            <a href="#" class="module-button" style="background-color: #6c757d;">Очаквайте скоро</a>
+        </div>
+        
+        <!-- Current Frame -->
+        <div class="module-card">
+            <div class="module-icon">🖼️</div>
+            <div class="module-title">Current Frame</div>
+            <div class="module-description">
+                Бърз достъп до текущия кадър от камерата
+            </div>
+            <div class="module-status">
+                <div class="status-indicator status-{{ 'active' if rtsp_config.status == 'ok' else 'inactive' }}"></div>
+                <span>{{ 'Наличен' if rtsp_config.status == 'ok' else 'Недостъпен' }}</span>
+            </div>
+            <a href="/latest.jpg" class="module-button">Преглед</a>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>ObzorWeather System &copy; 2025 | Хелиополис</p>
+    </div>
+</body>
+</html>

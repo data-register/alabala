@@ -1,0 +1,429 @@
+<!-- Файл: templates/multi_analysis_index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi Image Analysis - ObzorWeather</title>
+    <meta http-equiv="refresh" content="300">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 { color: #0066cc; text-align: center; }
+        .container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .analysis-section { 
+            margin: 20px 0; 
+            border: 1px solid #ccc; 
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            width: 100%;
+        }
+        .info { 
+            background-color: #e7f2ff; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin-top: 20px;
+            width: 100%;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status-ok { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+        .status-warning { background-color: #fff3cd; color: #856404; }
+        
+        /* Стил за анализа */
+        .weather-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 5px solid #0066cc;
+        }
+        .weather-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .weather-title {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .weather-time {
+            color: #666;
+            font-size: 14px;
+        }
+        .weather-detail {
+            margin: 5px 0;
+        }
+        .weather-detail strong {
+            margin-right: 5px;
+            color: #555;
+        }
+        .confidence-bar {
+            height: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            margin-top: 5px;
+            position: relative;
+        }
+        .confidence-level {
+            height: 100%;
+            background-color: #28a745;
+            border-radius: 5px;
+        }
+        
+        /* Стил за позициите */
+        .positions-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .position-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+            border-left: 5px solid #6c757d;
+        }
+        .position-header {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* Стил за историята */
+        .history-section {
+            margin-top: 30px;
+        }
+        .history-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        /* Стил за формуляра */
+        .config-form {
+            margin-top: 20px;
+            width: 100%;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0055aa;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .api-key-warning {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Multi Image Analysis - ObzorWeather</h1>
+    <div class="container">
+        {% if not has_api_key %}
+        <div class="api-key-warning">
+            <p>⚠️ ВНИМАНИЕ: Не е открит Anthropic API ключ!</p>
+            <p>Добавете секрет с име "ANTHROPIC_API_KEY" в Hugging Face Space настройките.</p>
+        </div>
+        {% endif %}
+        
+        <div class="analysis-section">
+            <h2>Анализ на изображенията от всички позиции</h2>
+            
+            {% if config.last_result %}
+            <div class="weather-card">
+                <div class="weather-header">
+                    <div class="weather-title">Обобщен метеорологичен анализ</div>
+                    <div class="weather-time">{{ config.last_result.timestamp.strftime('%d.%m.%Y %H:%M') if config.last_result.timestamp else 'Няма данни' }}</div>
+                </div>
+                
+                <div class="weather-detail">
+                    <strong>Средна облачност:</strong> {{ "%.1f"|format(config.last_result.avg_cloud_coverage) }}%
+                </div>
+                
+                <div class="weather-detail">
+                    <strong>Метеорологични условия:</strong> {{ config.last_result.overall_weather_conditions }}
+                </div>
+                
+                <div class="weather-detail">
+                    <strong>Слънчево:</strong> {% if config.last_result.sunny %}Да{% else %}Не{% endif %}
+                </div>
+                
+                <div class="weather-detail">
+                    <strong>Време за анализ:</strong> {{ "%.2f"|format(config.last_result.total_analysis_time) }} секунди
+                </div>
+            </div>
+            
+            <h3>Детайли по позиции:</h3>
+            <div class="positions-container">
+                {% for position_id, result in config.last_result.position_results.items() %}
+                <div class="position-card">
+                    <div class="position-header">
+                        {% if position_id == 1 %}
+                            Изток
+                        {% elif position_id == 2 %}
+                            Запад
+                        {% elif position_id == 3 %}
+                            Север
+                        {% elif position_id == 4 %}
+                            Юг
+                        {% else %}
+                            Позиция {{ position_id }}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="weather-detail">
+                        <strong>Облачност:</strong> {{ "%.1f"|format(result.cloud_coverage) }}%
+                    </div>
+                    
+                    <div class="weather-detail">
+                        <strong>Тип облаци:</strong> {{ result.cloud_type if result.cloud_type else 'Няма данни' }}
+                    </div>
+                    
+                    <div class="weather-detail">
+                        <strong>Метеорологични условия:</strong> {{ result.weather_conditions }}
+                    </div>
+                    
+                    <div class="weather-detail">
+                        <strong>Увереност:</strong> {{ "%.1f"|format(result.confidence) }}%
+                        <div class="confidence-bar">
+                            <div class="confidence-level" style="width: {{ result.confidence }}%;"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="weather-card">
+                <div class="weather-header">
+                    <div class="weather-title">Все още няма извършен анализ</div>
+                </div>
+                <p>Кликнете върху бутона "Анализирай сега" за да извършите първия анализ.</p>
+            </div>
+            {% endif %}
+            
+            <div class="controls">
+                <button onclick="analyzeNow()" class="btn-primary">Анализирай сега</button>
+                <button onclick="stopAnalysis()" class="btn-danger">Спри автоматичния анализ</button>
+                <button onclick="startAnalysis()" class="btn-secondary">Стартирай автоматичния анализ</button>
+            </div>
+        </div>
+        
+        <div class="info">
+            <p><strong>Статус:</strong> 
+                <span class="status {% if status == 'ok' %}status-ok{% elif status == 'error' %}status-error{% else %}status-warning{% endif %}">
+                    {{ status_text }}
+                </span>
+            </p>
+            <p><strong>Интервал на анализа:</strong> {{ config.analysis_interval }} секунди</p>
+            <p><strong>AI модел:</strong> {{ config.anthropic_model }}</p>
+            <p><strong>Последен анализ:</strong> {{ last_update }}</p>
+        </div>
+        
+        {% if history and history|length > 0 %}
+        <div class="history-section">
+            <h2 class="history-title">История на анализите</h2>
+            
+            {% for item in history %}
+            <div class="weather-card">
+                <div class="weather-header">
+                    <div class="weather-title">Анализ #{{ loop.index }}</div>
+                    <div class="weather-time">{{ item.timestamp.strftime('%d.%m.%Y %H:%M') if item.timestamp else 'Няма данни' }}</div>
+                </div>
+                
+                <div class="weather-detail">
+                    <strong>Средна облачност:</strong> {{ "%.1f"|format(item.avg_cloud_coverage) }}%
+                </div>
+                
+                <div class="weather-detail">
+                    <strong>Метеорологични условия:</strong> {{ item.overall_weather_conditions }}
+                </div>
+                
+                <div class="weather-detail">
+                    <strong>Слънчево:</strong> {% if item.sunny %}Да{% else %}Не{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            
+            <p><a href="/ptz/analysis/history?limit=20" target="_blank">Виж пълната история (JSON)</a></p>
+        </div>
+        {% endif %}
+        
+        <div class="config-form">
+            <h2>Настройки на модула</h2>
+            <form id="configForm" onsubmit="return updateConfig(event)">
+                <div class="form-group">
+                    <label for="analysis_interval">Интервал на анализа (секунди):</label>
+                    <input type="number" id="analysis_interval" name="analysis_interval" value="{{ config.analysis_interval }}" min="60" max="3600">
+                </div>
+                
+                <div class="form-group">
+                    <label for="anthropic_model">AI модел:</label>
+                    <select id="anthropic_model" name="anthropic_model">
+                        <option value="claude-3-sonnet-20240229" {% if config.anthropic_model == 'claude-3-sonnet-20240229' %}selected{% endif %}>Claude 3 Sonnet (балансиран)</option>
+                        <option value="claude-3-opus-20240229" {% if config.anthropic_model == 'claude-3-opus-20240229' %}selected{% endif %}>Claude 3 Opus (детайлен)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="max_tokens">Максимален брой токени:</label>
+                    <input type="number" id="max_tokens" name="max_tokens" value="{{ config.max_tokens }}" min="100" max="4000">
+                </div>
+                
+                <div class="form-group">
+                    <label for="temperature">Температура:</label>
+                    <input type="number" id="temperature" name="temperature" value="{{ config.temperature }}" min="0" max="1" step="0.1">
+                </div>
+                
+                <button type="submit">Запази настройките</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Функция за извършване на анализ
+        function analyzeNow() {
+            fetch('/ptz/analysis/analyze')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        // Обновяваме страницата за да покажем новия анализ
+                        window.location.reload();
+                    } else {
+                        alert('Грешка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при извършване на анализ');
+                });
+        }
+        
+        // Функция за спиране на автоматичния анализ
+        function stopAnalysis() {
+            if (confirm('Сигурни ли сте, че искате да спрете автоматичния анализ?')) {
+                fetch('/ptz/analysis/stop')
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Грешка при спиране на автоматичния анализ');
+                    });
+            }
+        }
+        
+        // Функция за стартиране на автоматичния анализ
+        function startAnalysis() {
+            fetch('/ptz/analysis/start')
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при стартиране на автоматичния анализ');
+                });
+        }
+        
+        // Функция за обновяване на конфигурацията
+        function updateConfig(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(document.getElementById('configForm'));
+            
+            fetch('/ptz/analysis/config', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    alert('Настройките са запазени успешно!');
+                    // Презареждаме страницата, за да видим промените
+                    window.location.reload();
+                } else {
+                    alert('Грешка: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Грешка при запазване на настройките');
+            });
+            
+            return false;
+        }
+    </script>
+</body>
+</html>

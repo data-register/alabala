@@ -1,0 +1,16 @@
+fastapi==0.103.1
+uvicorn==0.23.2
+httpx==0.24.1
+pydantic==2.3.0
+numpy==1.24.3
+opencv-python-headless==4.8.0.74
+python-multipart
+jinja2
+pillow
+requests
+python-dotenv
+# Библиотека за Imou камери
+imouapi==1.0.13
+
+# Предишната библиотека за ONVIF (вече не е необходима)
+# onvif-zeep==0.2.12

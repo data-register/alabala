@@ -1,0 +1,340 @@
+<!-- Файл: templates/ptz_capture_index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PTZ Capture - ObzorWeather</title>
+    <meta http-equiv="refresh" content="300">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 { color: #0066cc; text-align: center; }
+        .container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .capture-section { 
+            margin: 20px 0; 
+            border: 1px solid #ccc; 
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            width: 100%;
+        }
+        .info { 
+            background-color: #e7f2ff; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin-top: 20px;
+            width: 100%;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status-ok { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+        .status-warning { background-color: #fff3cd; color: #856404; }
+        
+        /* Стил за сервизната галерия */
+        .position-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .position-item {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+            background-color: white;
+        }
+        .position-header {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+            text-align: center;
+        }
+        .position-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        
+        /* Стил за контролите */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-primary {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background-color: #0055aa;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        
+        /* Стил за формуляра */
+        .config-form {
+            margin-top: 20px;
+            width: 100%;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="number"],
+        input[type="time"],
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .checkbox-group label {
+            margin-left: 10px;
+            margin-bottom: 0;
+        }
+        button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0055aa;
+        }
+    </style>
+</head>
+<body>
+    <h1>PTZ Capture - ObzorWeather</h1>
+    <div class="container">
+        <div class="capture-section">
+            <h2>Прихванати изображения от PTZ камерата</h2>
+            
+            <div class="position-grid">
+                {% for position in positions + [0] %}
+                <div class="position-item">
+                    <div class="position-header">
+                        {% if position == 0 %}
+                            Покой
+                        {% elif position == 1 %}
+                            Изток
+                        {% elif position == 2 %}
+                            Запад
+                        {% elif position == 3 %}
+                            Север
+                        {% elif position == 4 %}
+                            Юг
+                        {% else %}
+                            Позиция {{ position }}
+                        {% endif %}
+                    </div>
+                    <img src="/ptz/capture/latest/{{ position }}.jpg?ts={{ timestamp }}" alt="Позиция {{ position }}" class="position-image">
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="controls">
+                <button onclick="captureNow()" class="btn-primary">Прихвани изображения сега</button>
+                <button onclick="stopCapture()" class="btn-danger">Спри автоматичното прихващане</button>
+                <button onclick="startCapture()" class="btn-secondary">Стартирай автоматичното прихващане</button>
+            </div>
+        </div>
+        
+        <div class="info">
+            <p><strong>Статус:</strong> 
+                <span class="status {% if status == 'ok' %}status-ok{% elif status == 'error' %}status-error{% else %}status-warning{% endif %}">
+                    {{ status_text }}
+                </span>
+            </p>
+            <p><strong>Интервал на прихващане:</strong> {{ config.interval // 60 }} минути</p>
+            <p><strong>Време за изчакване след позициониране:</strong> {{ config.position_wait_time }} секунди</p>
+            <p><strong>Активен период:</strong> {{ active_start }} - {{ active_end }}</p>
+            <p><strong>Часова зона:</strong> UTC+{{ config.timezone_offset }}{% if config.dst_enabled %} (лятно часово време){% endif %}</p>
+            <p><strong>Последно прихващане:</strong> {{ last_update }}</p>
+            <p><strong>Последен пълен цикъл:</strong> {{ last_cycle }}</p>
+        </div>
+        
+        <div class="config-form">
+            <h2>Настройки на прихващането</h2>
+            <form id="configForm" onsubmit="return updateConfig(event)">
+                <div class="form-group">
+                    <label for="interval">Интервал на прихващане (минути):</label>
+                    <input type="number" id="interval" name="interval" value="{{ config.interval // 60 }}" min="5" max="120">
+                </div>
+                
+                <div class="form-group">
+                    <label for="position_wait_time">Време за изчакване след преместване (секунди):</label>
+                    <input type="number" id="position_wait_time" name="position_wait_time" value="{{ config.position_wait_time }}" min="5" max="30">
+                </div>
+                
+                <div class="form-group">
+                    <label for="active_time_start">Начало на активния период:</label>
+                    <input type="time" id="active_time_start" name="active_time_start" value="{{ active_start }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="active_time_end">Край на активния период:</label>
+                    <input type="time" id="active_time_end" name="active_time_end" value="{{ active_end }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="timezone_offset">Часова зона (UTC+):</label>
+                    <input type="number" id="timezone_offset" name="timezone_offset" value="{{ config.timezone_offset }}" min="-12" max="14">
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="dst_enabled" name="dst_enabled" {% if config.dst_enabled %}checked{% endif %}>
+                    <label for="dst_enabled">Лятно часово време (+1 час)</label>
+                </div>
+                
+                <div class="form-group">
+                    <label for="positions">Позиции за обхождане (разделени със запетая):</label>
+                    <input type="text" id="positions" name="positions" value="{{ config.positions|join(', ') }}">
+                </div>
+                
+                <button type="submit">Запази настройките</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Функция за прихващане на изображения
+        function captureNow() {
+            fetch('/ptz/capture/capture')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        alert('Цикълът на прихващане е успешно стартиран. Моля, изчакайте докато завърши.');
+                        // След 30 секунди презареждаме страницата, за да видим новите изображения
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 30000);
+                    } else {
+                        alert('Грешка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при стартиране на цикъл на прихващане');
+                });
+        }
+        
+        // Функция за спиране на автоматичното прихващане
+        function stopCapture() {
+            if (confirm('Сигурни ли сте, че искате да спрете автоматичното прихващане?')) {
+                fetch('/ptz/capture/stop')
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Грешка при спиране на автоматичното прихващане');
+                    });
+            }
+        }
+        
+        // Функция за стартиране на автоматичното прихващане
+        function startCapture() {
+            fetch('/ptz/capture/start')
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Грешка при стартиране на автоматичното прихващане');
+                });
+        }
+        
+        // Функция за обновяване на конфигурацията
+        function updateConfig(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(document.getElementById('configForm'));
+            
+            // Преобразуваме интервала от минути в секунди
+            const intervalMinutes = formData.get('interval');
+            formData.set('interval', intervalMinutes * 60);
+            
+            fetch('/ptz/capture/config', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    alert('Настройките са запазени успешно!');
+                    // Презареждаме страницата, за да видим промените
+                    window.location.reload();
+                } else {
+                    alert('Грешка: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Грешка при запазване на настройките');
+            });
+            
+            return false;
+        }
+    </script>
+</body>
+</html>
