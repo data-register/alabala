@@ -7,6 +7,7 @@ import os
 import cv2
 import time
 import threading
+import asyncio
 from datetime import datetime, timedelta
 import numpy as np
 from PIL import Image
@@ -42,6 +43,32 @@ def is_active_time() -> bool:
     # Връщаме дали сме в активния период
     return config.active_time_start <= now <= config.active_time_end
 
+def safe_run_coroutine(coro):
+    """
+    Безопасно изпълнява корутина, дори ако вече има активен event loop
+    Актуализирана за Python 3.11
+    """
+    try:
+        if asyncio.iscoroutine(coro):
+            # Използваме asyncio.run в Python 3.11, което е по-надеждно
+            try:
+                # Първо опитваме със съществуващ event loop
+                loop = asyncio.get_running_loop()
+                # Ако вече има работещ loop, създаваме нов
+                new_loop = asyncio.new_event_loop()
+                result = new_loop.run_until_complete(coro)
+                new_loop.close()
+                return result
+            except RuntimeError:
+                # Ако няма работещ loop, използваме asyncio.run
+                return asyncio.run(coro)
+        else:
+            # Ако не е корутина, връщаме директно стойността
+            return coro
+    except Exception as e:
+        logger.error(f"Грешка при изпълнение на корутина: {str(e)}")
+        return False
+
 def capture_position_frame(position_id: int) -> bool:
     """
     Премества камерата към определена позиция и прихваща кадър
@@ -58,7 +85,8 @@ def capture_position_frame(position_id: int) -> bool:
         logger.info(f"Преместване на камерата към позиция {position_id}")
         
         # Преместваме камерата към позицията
-        move_success = move_to_position(position_id)
+        # Използваме безопасното изпълнение на корутини
+        move_success = safe_run_coroutine(move_to_position(position_id))
         
         if not move_success:
             logger.error(f"Не може да се премести камерата към позиция {position_id}")
@@ -115,8 +143,31 @@ def capture_position_frame(position_id: int) -> bool:
         filename = f"position_{position_id}_frame_{timestamp}.jpg"
         
         # Определяме директорията за тази позиция
-        position_dir = os.path.join(config.save_dir, f"position_{position_id}")
-        os.makedirs(position_dir, exist_ok=True)
+        # Опитваме няколко възможни пътища
+        position_dir = None
+        paths_to_try = [
+            os.path.join(config.save_dir, f"position_{position_id}"),
+            os.path.join("ptz_frames", f"position_{position_id}"),
+            os.path.join("/app/ptz_frames", f"position_{position_id}")
+        ]
+        
+        for path in paths_to_try:
+            try:
+                os.makedirs(path, exist_ok=True)
+                # Проверяваме дали можем да пишем в директорията
+                test_file = os.path.join(path, "test.txt")
+                with open(test_file, 'w') as f:
+                    f.write("test")
+                os.remove(test_file)
+                position_dir = path
+                logger.info(f"Успешно използване на директория: {path}")
+                break
+            except Exception as e:
+                logger.warning(f"Не може да се използва директория {path}: {str(e)}")
+        
+        if position_dir is None:
+            logger.error("Не е намерена валидна директория за запазване на кадъра")
+            return False
         
         filepath = os.path.join(position_dir, filename)
         
@@ -153,7 +204,6 @@ def capture_all_positions() -> bool:
         bool: Успешно прихващане на всички позиции
     """
     global last_cycle_start_time
-    # Файл: modules/ptz_capture/capture.py (продължение)
     config = get_capture_config()
     last_cycle_start_time = datetime.now()
     
@@ -175,7 +225,7 @@ def capture_all_positions() -> bool:
         
         # Връщаме камерата в позиция на покой (позиция 0)
         logger.info("Връщане на камерата в позиция на покой")
-        move_to_position(0)
+        safe_run_coroutine(move_to_position(0))
         
         # Ако всичко е OK, обновяваме времето на последния пълен цикъл
         if success:
@@ -190,7 +240,7 @@ def capture_all_positions() -> bool:
         logger.error(f"Грешка при цикъл на прихващане: {str(e)}")
         # Опитваме се да върнем камерата в позиция на покой при грешка
         try:
-            move_to_position(0)
+            safe_run_coroutine(move_to_position(0))
         except:
             pass
         return False
@@ -286,33 +336,83 @@ def initialize():
     config = get_capture_config()
     
     # Създаваме директориите, ако не съществуват
-    os.makedirs(config.save_dir, exist_ok=True)
+    # Опитваме няколко възможни пътища
+    successful_base_path = None
+    paths_to_try = [
+        config.save_dir,
+        "ptz_frames",
+        "/app/ptz_frames"
+    ]
+    
+    for base_path in paths_to_try:
+        try:
+            os.makedirs(base_path, exist_ok=True)
+            
+            # Проверяваме дали можем да създаваме файлове
+            test_file = os.path.join(base_path, "test_write.txt")
+            with open(test_file, 'w') as f:
+                f.write("test")
+            os.remove(test_file)
+            
+            successful_base_path = base_path
+            logger.info(f"Успешно използване на базова директория: {base_path}")
+            
+            # Ако сме намерили работеща директория, актуализираме конфигурацията
+            if base_path != config.save_dir:
+                update_capture_config(save_dir=base_path)
+                logger.info(f"Конфигурацията е актуализирана с нова директория: {base_path}")
+            
+            break
+        except Exception as e:
+            logger.warning(f"Не може да се използва директория {base_path}: {str(e)}")
+    
+    if not successful_base_path:
+        logger.error("Не е намерена валидна директория за запазване на кадри. Модулът няма да работи правилно.")
+        update_capture_config(status="error")
+        return False
+    
+    # Създаваме поддиректории за позициите
     for pos in config.positions + [0]:  # Включваме и позиция 0 (покой)
-        os.makedirs(os.path.join(config.save_dir, f"position_{pos}"), exist_ok=True)
+        pos_dir = os.path.join(successful_base_path, f"position_{pos}")
+        try:
+            os.makedirs(pos_dir, exist_ok=True)
+            logger.info(f"Създадена директория за позиция {pos}: {pos_dir}")
+        except Exception as e:
+            logger.error(f"Грешка при създаване на директория за позиция {pos}: {str(e)}")
     
     # Създаваме placeholder изображения, ако е необходимо
     for pos in config.positions + [0]:
-        position_dir = os.path.join(config.save_dir, f"position_{pos}")
+        position_dir = os.path.join(successful_base_path, f"position_{pos}")
         latest_path = os.path.join(position_dir, "latest.jpg")
         
         if not os.path.exists(latest_path):
-            # Използваме размерите от RTSP модула
-            from modules.rtsp_capture.config import get_capture_config as get_rtsp_config
-            rtsp_config = get_rtsp_config()
-            width = rtsp_config.width
-            height = rtsp_config.height
-            
-            placeholder = np.zeros((height, width, 3), dtype=np.uint8)
-            cv2.putText(
-                placeholder, 
-                f"Waiting for first frame for position {pos}...", 
-                (50, height // 2),
-                cv2.FONT_HERSHEY_SIMPLEX, 
-                1, 
-                (255, 255, 255), 
-                2
-            )
-            cv2.imwrite(latest_path, placeholder)
+            try:
+                # Използваме размерите от RTSP модула
+                from modules.rtsp_capture.config import get_capture_config as get_rtsp_config
+                rtsp_config = get_rtsp_config()
+                width = rtsp_config.width
+                height = rtsp_config.height
+                
+                placeholder = np.zeros((height, width, 3), dtype=np.uint8)
+                cv2.putText(
+                    placeholder, 
+                    f"Waiting for first frame for position {pos}...", 
+                    (50, height // 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 
+                    1, 
+                    (255, 255, 255), 
+                    2
+                )
+                cv2.imwrite(latest_path, placeholder)
+                logger.info(f"Създаден placeholder за позиция {pos}")
+            except Exception as e:
+                logger.error(f"Грешка при създаване на placeholder за позиция {pos}: {str(e)}")
+    
+    # Опитваме един цикъл на прихващане
+    try:
+        capture_all_positions()
+    except Exception as e:
+        logger.error(f"Грешка при първоначално прихващане: {str(e)}")
     
     # Стартираме thread за прихващане
     start_capture_thread()
